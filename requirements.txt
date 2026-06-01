@@ -1,0 +1,9 @@
+flask
+stix2
+taxii2-client
+scikit-learn
+sentence-transformers
+numpy
+pandas
+pytest
+python-dotenv
