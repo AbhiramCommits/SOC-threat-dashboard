@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 import numpy as np
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, render_template, request
 
 from app.models import get_alert_by_id, get_alerts, get_stats, insert_alert
 from app.nlp.classifier import predict_tactic
@@ -72,11 +72,20 @@ def _extract_top_features(model, text, predicted_tactic, n=3):
 # ---------------------------------------------------------------------------
 
 
+@api_bp.route("/")
+def dashboard():
+    return render_template("dashboard.html")
+
+
 @api_bp.route("/api/alerts", methods=["GET"])
 def list_alerts():
     db = get_db()
     tactic = request.args.get("tactic")
     duplicate_raw = request.args.get("duplicate")
+    search = request.args.get("search")
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+
     duplicate = None
     if duplicate_raw is not None:
         try:
@@ -98,7 +107,16 @@ def list_alerts():
     offset = (page - 1) * limit
     count_row = db.execute("SELECT COUNT(*) FROM alerts").fetchone()
     total = count_row[0] if count_row else 0
-    alerts = get_alerts(db, tactic=tactic, duplicate=duplicate, limit=limit, offset=offset)
+    alerts = get_alerts(
+        db,
+        tactic=tactic,
+        duplicate=duplicate,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
 
     return jsonify({"data": alerts, "page": page, "limit": limit, "total": total})
 

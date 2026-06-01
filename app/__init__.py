@@ -1,4 +1,5 @@
 import json
+import os
 import pickle
 import sqlite3
 
@@ -16,7 +17,11 @@ def _load_tfidf_model(config):
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static"),
+        template_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "templates"),
+    )
     app.config.from_object("config.Config")
 
     db_path = app.config["DB_PATH"]
@@ -32,9 +37,5 @@ def create_app():
     from app.nlp import nlp_bp
 
     app.register_blueprint(nlp_bp, url_prefix="/nlp")
-
-    @app.route("/")
-    def index():
-        return {"status": "running", "name": "SOC Threat Dashboard"}
 
     return app

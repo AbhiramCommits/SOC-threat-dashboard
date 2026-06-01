@@ -51,7 +51,7 @@ def insert_alert(conn, alert_dict):
     conn.commit()
 
 
-def get_alerts(conn, tactic=None, duplicate=None, limit=50, offset=0):
+def get_alerts(conn, tactic=None, duplicate=None, search=None, date_from=None, date_to=None, limit=50, offset=0):
     query = "SELECT alert_id, timestamp, raw_text, tactic_category, confidence_score, is_duplicate FROM alerts WHERE 1=1"
     params = []
 
@@ -61,6 +61,15 @@ def get_alerts(conn, tactic=None, duplicate=None, limit=50, offset=0):
     if duplicate is not None:
         query += " AND is_duplicate = ?"
         params.append(int(duplicate))
+    if search is not None:
+        query += " AND raw_text LIKE ?"
+        params.append(f"%{search}%")
+    if date_from is not None:
+        query += " AND date(timestamp) >= ?"
+        params.append(date_from)
+    if date_to is not None:
+        query += " AND date(timestamp) <= ?"
+        params.append(date_to)
 
     query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOC Threat Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-card: #161b26;
+      --bg-input: #1f2937;
+      --border: #2d3748;
+      --text-primary: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-green: #00d4aa;
+      --accent-amber: #ffb020;
+      --accent-red: #ef4444;
+      --accent-blue: #3b82f6;
+      --accent-purple: #a855f7;
+      --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--accent-green);
+    }
+    .header-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      margin-right: 8px;
+      box-shadow: 0 0 6px rgba(0, 212, 170, 0.5);
+    }
+    .header-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .header-meta span {
+      color: var(--text-secondary);
+    }
+
+    /* ---- Layout ---- */
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+
+    /* ---- Stats Row ---- */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .stat-value.green { color: var(--accent-green); }
+    .stat-value.amber { color: var(--accent-amber); }
+    .stat-value.blue  { color: var(--accent-blue); }
+
+    /* ---- Charts Row ---- */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .charts-row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .chart-card.full {
+      grid-column: 1 / -1;
+    }
+    .chart-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 220px;
+    }
+    .chart-wrapper.tall {
+      height: 260px;
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ---- Filter Bar ---- */
+    .filter-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-group label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    select, input[type="date"], input[type="text"] {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-family: var(--font-sans);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    select:focus, input:focus {
+      border-color: var(--accent-green);
+    }
+    input[type="text"] {
+      min-width: 220px;
+    }
+    .btn-refresh {
+      margin-left: auto;
+      background: var(--accent-green);
+      color: #0a0e17;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-refresh:hover { opacity: 0.85; }
+
+    /* ---- Table ---- */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .pagination button {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .pagination button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+    }
+    tbody td {
+      padding: 10px 16px;
+      font-size: 0.82rem;
+      border-bottom: 1px solid rgba(45, 55, 72, 0.5);
+    }
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    tbody tr:hover {
+      background: rgba(0, 212, 170, 0.04);
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .badge-green { background: rgba(0, 212, 170, 0.15); color: var(--accent-green); }
+    .badge-amber { background: rgba(255, 176, 32, 0.15); color: var(--accent-amber); }
+    .badge-red   { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .badge-blue  { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .pill-dup {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .pill-unique {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-green);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .text-truncate {
+      max-width: 360px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state p { margin-top: 8px; }
+
+    /* ---- Modal ---- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 640px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 {
+      font-size: 1rem;
+      color: var(--accent-green);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text-primary); }
+    .modal-body {
+      padding: 20px;
+    }
+    .detail-row {
+      display: flex;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+    }
+    .detail-label {
+      width: 130px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.5px;
+    }
+    .detail-value {
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+    .feature-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .feature-tag {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--accent-green);
+    }
+
+    /* ---- Loading ---- */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--text-muted);
+      border-top-color: var(--accent-green);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-title">
+    <span class="header-dot"></span>SOC Threat Dashboard
+  </div>
+  <div class="header-meta">
+    Last updated: <span id="last-updated">--</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- STATS ROW -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Alerts</div>
+      <div class="stat-value blue" id="stat-total">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Duplicate Rate</div>
+      <div class="stat-value amber" id="stat-dup-rate">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Most Active Tactic</div>
+      <div class="stat-value green" id="stat-top-tactic">--</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Alerts by Tactic</div>
+      <div class="chart-wrapper tall"><canvas id="chart-tactic-bar"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Duplicate vs Unique</div>
+      <div class="chart-wrapper"><canvas id="chart-doughnut"></canvas></div>
+    </div>
+  </div>
+  <div class="charts-row" style="grid-template-columns: 1fr;">
+    <div class="chart-card">
+      <div class="chart-title">Alert Volume — Last 7 Days</div>
+      <div class="chart-wrapper"><canvas id="chart-volume-line"></canvas></div>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Tactic</label>
+      <select id="filter-tactic">
+        <option value="">All</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Duplicate</label>
+      <select id="filter-duplicate">
+        <option value="">All</option>
+        <option value="0">Unique</option>
+        <option value="1">Duplicate</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" id="filter-date-from">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" id="filter-date-to">
+    </div>
+    <div class="filter-group">
+      <input type="text" id="filter-search" placeholder="Search alert text...">
+    </div>
+    <button class="btn-refresh" id="btn-refresh">Apply Filters</button>
+  </div>
+
+  <!-- ALERT TABLE -->
+  <div class="table-container">
+    <div class="table-header">
+      <div class="table-title">Alert Feed</div>
+      <div class="pagination">
+        <button id="btn-prev" disabled>&laquo; Prev</button>
+        <span id="page-info">Page 1</span>
+        <button id="btn-next" disabled>Next &raquo;</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Tactic</th>
+          <th>Confidence</th>
+          <th>Duplicate</th>
+          <th>Alert Text</th>
+        </tr>
+      </thead>
+      <tbody id="alerts-tbody">
+        <tr><td colspan="5" class="empty-state"><div class="spinner"></div><p>Loading alerts...</p></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Alert Detail</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="spinner"></div> Loading...
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/charts.js"></script>
+</body>
+</html>
